@@ -703,22 +703,20 @@ report = (function () {
                     commonOptions.scales = JSON.parse(opt);
                 }
             }
-
             if (el.dataset.showlabels && el.dataset.showlabels === "true") {
                 chart.plugins = ["ChartDataLabels"];
                 commonOptions.plugins = {
                     "datalabels": {
-                      "color": "white",
-                      //"backgroundColor": "#005a66",
-                      "font": {
-                        "weight": "bold"
-                      }
+                        "color": "white",
+                        //"backgroundColor": "#005a66",
+                        "font": {
+                            "weight": "bold"
+                        }
                     }
-                  };
-
+                };
             }
 
-            console.log(commonOptions);
+
 
             var colors = ["#36A2EB"];
             var backgroundColors = []
@@ -764,7 +762,19 @@ report = (function () {
             var base = 200;
             var w = base * ratio[0];
             var h = base * ratio[1];
-            $(el).prepend('<canvas id="' + chart.id + '-canvas" width="' + w + '" height="' + h +'"></canvas>');
+            var downloadname = chart.id + '-canvas'
+
+            var buttondownload_graph = $("<button>").on("click", function () {
+                const linkSource = $(this).next()[0].toDataURL()
+                const downloadLink = document.createElement("a");
+                downloadLink.href = linkSource;
+                downloadLink.download = downloadname;
+                downloadLink.click();
+                console.log(linkSource)
+            })
+            $(el).prepend('<canvas id="' + chart.id + '-canvas" width="' + w + '" height="' + h + '"></canvas>');
+
+            $(el).prepend(buttondownload_graph);
             // Add Title and Description to the preview
             //_configTitleDesc(chart.title, chart.description);
             var options = $.extend(commonOptions, chart.options);
@@ -787,6 +797,44 @@ report = (function () {
         } else {
             _handleVizError(el, chart.id, data);
         }
+        var titretostring = chart.data.datasets[0].data
+        var datatostring = chart.data.datasets[0].data
+      
+       var csvFileData = [
+        ['titre :', titretostring],
+        ['data :',datatostring]
+
+    ];
+    var buttondownload_graphCSV = $("<button>").on("click", function () {
+       
+        var titre = chart.data.datasets[0].label;
+        //define the heading for each row of the data
+        var csv = titre + '\n';
+
+        //merge the data with CSV
+        csvFileData.forEach(function (row) {
+            csv += row.join(',');
+            csv += '\n';
+        });
+
+        //display the created CSV data on the web browser 
+        document.write(csv);
+
+
+        var hiddenElement = document.createElement('a');
+        hiddenElement.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+        hiddenElement.target = '_blank';
+
+        //provide the name for the CSV file to be downloaded
+        hiddenElement.download = chart.data.datasets[0].label,'.csv';
+        hiddenElement.click();
+    })
+    // FIN CSV
+
+    $(el).parent().append(buttondownload_graphCSV);
+
+
+
     };
 
     var _createFigure = function (data, chiffrecle) {
@@ -938,7 +986,10 @@ report = (function () {
     var _createMap = function (data, map) {
         var el = _getDomElement("map", map.id);
         var id = map.id + "-map";
-        $(el).append('<div id="' + id + '" style="width:auto;height:300px;"><div>');
+
+        $(el).append('<div id="' + id + '" style="width:auto;height:350px;"><div>');
+
+        var _map = L.map(id);
         var zoom = map.zoom || false;
         var datasets_nb = data[map.id].dataset.length;
         var points_nb = data[map.id].rows;
@@ -948,6 +999,13 @@ report = (function () {
         var all_points = [];
         var icons = [];
         var center = [48, 0];
+        var printer = L.easyPrint({
+            //tileLayer: "tiles",
+            sizeModes: ['Current', 'A4Landscape', 'A4Portrait'],
+            filename: 'myMap',
+            exportOnly: true,
+            hideControlContainer: true
+      }).addTo(_map);
         if (datasets_nb === 1) {
             // une typologie de points
             icons.push(L.divIcon({
@@ -972,8 +1030,9 @@ report = (function () {
             all_points.push(points);
 
         } else {
+
             // Plusieurs typologies de points
-            data[map.id].dataset.forEach(function (dataset, id) {
+            data[_map.id].dataset.forEach(function (dataset, id) {
                 icons.push(L.divIcon({
                     className: 'map-marker-circle-' + (id + 1),
                     iconSize: [30, 30]
@@ -994,13 +1053,18 @@ report = (function () {
                     "icon": icons[id]
                 });
                 all_points.push(points);
+                L.easyPrint({
+                    title: 'My awesome print button',
+                    position: 'bottomright',
+                    elementsToHide: 'p, h2'
+                }).addTo(_map);
             });
         }
-        var _map = L.map(id);
         _map.zoomControl.remove();
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(_map);
+
         layers.forEach(function (layer, idlayer) {
             layer.points.forEach(function (point, id) {
                 if (datasets_nb === 1) {
@@ -1008,18 +1072,17 @@ report = (function () {
                 } else {
                     label = layer.labels[idlayer][id];
                 }
-                var marker = L.marker(point, {
-                    icon: layer.icon
-                }).addTo(_map).bindPopup(label);
+                var marker = L.marker(point,
+                    {
+                        icon: layer.icon
+                    }).addTo(_map).bindPopup(label);
             });
 
         });
-
         _map.fitBounds(all_points);
         if (zoom) {
             _map.setZoom(zoom);
         }
-
     };
 
     var _testViz = function (data, type, properties) {
