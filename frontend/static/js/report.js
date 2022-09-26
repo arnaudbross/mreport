@@ -797,7 +797,7 @@ report = (function () {
         } else {
             _handleVizError(el, chart.id, data);
         }
-        var titretostring = chart.data.datasets[0].data
+        var titretostring = chart.data.labels
         var datatostring = chart.data.datasets[0].data
       
        var csvFileData = [
